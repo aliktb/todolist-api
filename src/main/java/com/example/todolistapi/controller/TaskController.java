@@ -1,7 +1,7 @@
-package com.example.todolistapi.Controller;
+package com.example.todolistapi.controller;
 
-import com.example.todolistapi.Domain.Task;
-import com.example.todolistapi.Service.TaskService;
+import com.example.todolistapi.domain.Task;
+import com.example.todolistapi.service.TaskService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

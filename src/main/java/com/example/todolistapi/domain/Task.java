@@ -1,4 +1,4 @@
-package com.example.todolistapi.Domain;
+package com.example.todolistapi.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

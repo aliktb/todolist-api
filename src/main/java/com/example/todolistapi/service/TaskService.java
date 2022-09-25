@@ -1,7 +1,7 @@
-package com.example.todolistapi.Service;
+package com.example.todolistapi.service;
 
-import com.example.todolistapi.Domain.Task;
-import com.example.todolistapi.Repository.TaskRepository;
+import com.example.todolistapi.domain.Task;
+import com.example.todolistapi.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
