@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DemoController {
 
     @GetMapping("/test")
-    public ResponseEntity<String> TestEndpoint(){
+    public ResponseEntity<String> testEndpoint(){
 
         log.info("Fetching demo/test endpoint");
         return new ResponseEntity<String>("Running!", HttpStatus.OK);
