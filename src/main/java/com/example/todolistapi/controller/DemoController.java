@@ -1,4 +1,4 @@
-package com.example.todolistapi.Controller;
+package com.example.todolistapi.controller;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DemoController {
 
     @GetMapping("/test")
-    public ResponseEntity<String> TestEndpoint(){
+    public ResponseEntity<String> testEndpoint(){
 
         log.info("Fetching demo/test endpoint");
         return new ResponseEntity<String>("Running!", HttpStatus.OK);
