@@ -40,6 +40,7 @@ dependencies {
 	implementation 'net.lbruun.springboot:preliquibase-spring-boot-starter:1.1.1'
 	// https://mvnrepository.com/artifact/redis.clients/jedis
 	implementation group: 'redis.clients', name: 'jedis', version: '2.8.0'
+	testImplementation 'com.h2database:h2:2.1.212'
 
 }
 
