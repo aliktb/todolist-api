@@ -13,4 +13,4 @@ COPY --from=build /home/gradle/src/build/libs/todolistapi-0.0.1-SNAPSHOT.jar /ap
 
 ENV JAVA_TOOL_OPTIONS="-Xms512M"
 
-ENTRYPOINT ["java", "-Dserver.port=$PORT", "-jar","/app/todolistapi-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-jar","/app/todolistapi-0.0.1-SNAPSHOT.jar"]
