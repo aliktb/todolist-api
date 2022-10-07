@@ -29,6 +29,18 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+
+	implementation 'org.liquibase:liquibase-core:4.11.0'
+	// This liquibase dependency is used to create the non-public schema before liquibase starts,
+	// so that the liquibase tables (databasechangelog / databasechangeloglock) can be created in
+	// the same schema as the application tables. The standard spring approach of using schema.sql
+	// to create the schema for liquibase is discouraged, see :
+	// https://stackoverflow.com/questions/52517529/how-to-create-schema-in-postgres-db-before-liquibase-start-to-work
+	// https://github.com/spring-projects/spring-boot/issues/22741
+	implementation 'net.lbruun.springboot:preliquibase-spring-boot-starter:1.1.1'
+	// https://mvnrepository.com/artifact/redis.clients/jedis
+	implementation group: 'redis.clients', name: 'jedis', version: '2.8.0'
+
 }
 
 tasks.named('test') {

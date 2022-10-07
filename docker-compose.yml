@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:10-alpine
+    restart: on-failure
+    container_name: todolist
+    environment:
+      POSTGRES_DB: apollo
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U root password" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - 15432:5432
+  redis:
+    image: redis:7-alpine
+    ports:
+      - 6379:6379
+    command: redis-server --requirepass mypass
