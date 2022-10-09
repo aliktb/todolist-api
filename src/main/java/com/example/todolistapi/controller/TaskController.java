@@ -32,4 +32,9 @@ public class TaskController {
 
         return new ResponseEntity<>(service.addNewTask(newTask), HttpStatus.OK);
     }
+
+    @DeleteMapping("/deleteTask/{id}")
+    public ResponseEntity<String> deleteTask(){
+        return new ResponseEntity<>("deleted!",HttpStatus.NO_CONTENT);
+    }
 }
