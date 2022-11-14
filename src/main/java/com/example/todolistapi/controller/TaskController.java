@@ -24,12 +24,14 @@ public class TaskController {
     @GetMapping("/getAllTasks")
     public ResponseEntity<List<Task>> getAllTasks(){
 
+        log.info("fetching all tasks");
         return new ResponseEntity<>(service.getAllTasks(), HttpStatus.OK);
     }
 
     @PostMapping("/addNewTask")
     public ResponseEntity<String> addNewTask(@RequestBody Task newTask){
 
+        log.info("Saving new task: {}", newTask.getTaskName());
         return new ResponseEntity<>(service.addNewTask(newTask), HttpStatus.OK);
     }
 }
