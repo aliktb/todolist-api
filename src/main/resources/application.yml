@@ -3,7 +3,7 @@ spring:
     datasource:
         driverClassName: org.postgresql.Driver
         password: ${PGPASSWORD:password}
-        url: jdbc:postgresql://${PGHOST:localhost}/${PGDATABASE:apollo}
+        url: jdbc:postgresql://${PGHOST:localhost:15432}/${PGDATABASE:apollo}
         username: ${PGUSER:root}
     jpa:
         show-sql: false
