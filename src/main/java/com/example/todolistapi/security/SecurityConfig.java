@@ -23,7 +23,7 @@ public class SecurityConfig {
 
         http.authorizeRequests()
                 .mvcMatchers("/demo").permitAll()
-                .mvcMatchers("/tasks/**").authenticated()
+                .mvcMatchers("/tasks/**, /users/**").authenticated()
                 .and().cors()
                 .and().oauth2ResourceServer().jwt();
 
