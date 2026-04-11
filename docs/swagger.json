@@ -1,0 +1,86 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Todo List API",
+    "description": "REST API for managing todo tasks.",
+    "version": "1.0"
+  },
+  "basePath": "/",
+  "schemes": ["http", "https"],
+  "paths": {
+    "/health/live": {
+      "get": {
+        "summary": "Liveness probe",
+        "tags": ["health"],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Readiness probe",
+        "tags": ["health"],
+        "responses": {
+          "200": {
+            "description": "Ready"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/tasks": {
+      "get": {
+        "summary": "List tasks",
+        "tags": ["tasks"],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a task",
+        "tags": ["tasks"],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{taskID}": {
+      "get": {
+        "summary": "Get a task",
+        "tags": ["tasks"],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a task",
+        "tags": ["tasks"],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a task",
+        "tags": ["tasks"],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    }
+  }
+}
