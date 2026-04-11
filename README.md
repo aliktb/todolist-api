@@ -206,12 +206,30 @@ docker run --rm -p 8080:8080 \
   todolist-api
 ```
 
+On container startup, the entrypoint runs `todolist-migrate up` before starting
+the API process. If there are no pending migrations, startup continues normally.
+If a migration fails, the container exits instead of starting the server with an
+unexpected schema.
+
+To skip startup migrations for a container instance:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e RUN_MIGRATIONS=false \
+  -e DATABASE_URL="postgres://postgres:host.docker.internal:5432/todolist?sslmode=disable" \
+  todolist-api
+```
+
 ### Health Probes
 
 For orchestrators such as Kubernetes, use:
 
 - Liveness probe: `GET /health/live`
 - Readiness probe: `GET /health/ready`
+
+This pattern is fine for local Docker and single-instance deployments. In a
+multi-replica environment, a separate migration job or init container is often
+cleaner.
 
 ## Notes
 
