@@ -17,9 +17,7 @@ const doc = `{
         "summary": "Liveness probe",
         "tags": ["health"],
         "responses": {
-          "200": {
-            "description": "OK"
-          }
+          "200": {"description": "OK"}
         }
       }
     },
@@ -28,12 +26,8 @@ const doc = `{
         "summary": "Readiness probe",
         "tags": ["health"],
         "responses": {
-          "200": {
-            "description": "Ready"
-          },
-          "503": {
-            "description": "Database unavailable"
-          }
+          "200": {"description": "Ready"},
+          "503": {"description": "Database unavailable"}
         }
       }
     },
@@ -47,9 +41,7 @@ const doc = `{
             "description": "OK",
             "schema": {
               "type": "array",
-              "items": {
-                "$ref": "#/definitions/tasks.Task"
-              }
+              "items": {"$ref": "#/definitions/tasks.Task"}
             }
           }
         }
@@ -64,17 +56,13 @@ const doc = `{
             "in": "body",
             "name": "payload",
             "required": true,
-            "schema": {
-              "$ref": "#/definitions/tasks.CreateTaskInput"
-            }
+            "schema": {"$ref": "#/definitions/tasks.CreateTaskInput"}
           }
         ],
         "responses": {
           "201": {
             "description": "Created",
-            "schema": {
-              "$ref": "#/definitions/tasks.Task"
-            }
+            "schema": {"$ref": "#/definitions/tasks.Task"}
           }
         }
       }
@@ -95,9 +83,7 @@ const doc = `{
         "responses": {
           "200": {
             "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/tasks.Task"
-            }
+            "schema": {"$ref": "#/definitions/tasks.Task"}
           }
         }
       },
@@ -117,17 +103,13 @@ const doc = `{
             "in": "body",
             "name": "payload",
             "required": true,
-            "schema": {
-              "$ref": "#/definitions/tasks.UpdateTaskInput"
-            }
+            "schema": {"$ref": "#/definitions/tasks.UpdateTaskInput"}
           }
         ],
         "responses": {
           "200": {
             "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/tasks.Task"
-            }
+            "schema": {"$ref": "#/definitions/tasks.Task"}
           }
         }
       },
@@ -143,9 +125,7 @@ const doc = `{
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
-          }
+          "204": {"description": "No Content"}
         }
       }
     }
@@ -155,50 +135,39 @@ const doc = `{
       "type": "object",
       "required": ["title"],
       "properties": {
-        "title": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        }
+        "title": {"type": "string", "example": "Write React integration"},
+        "description": {"type": "string", "example": "Hook the frontend up to the API"},
+        "status": {"type": "string", "example": "todo"},
+        "priority": {"type": "string", "example": "high"},
+        "due_at": {"type": "string", "format": "date-time", "example": "2026-04-15T09:00:00Z"},
+        "parent_task_id": {"type": "integer", "example": 1}
       }
     },
     "tasks.UpdateTaskInput": {
       "type": "object",
       "required": ["title"],
       "properties": {
-        "title": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "completed": {
-          "type": "boolean"
-        }
+        "title": {"type": "string", "example": "Write React integration"},
+        "description": {"type": "string", "example": "Frontend now calls the API"},
+        "status": {"type": "string", "example": "in_progress"},
+        "priority": {"type": "string", "example": "medium"},
+        "due_at": {"type": "string", "format": "date-time", "example": "2026-04-16T17:00:00Z"},
+        "parent_task_id": {"type": "integer", "example": 1}
       }
     },
     "tasks.Task": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "integer"
-        },
-        "title": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "completed": {
-          "type": "boolean"
-        },
-        "created_at": {
-          "type": "string"
-        },
-        "updated_at": {
-          "type": "string"
-        }
+        "id": {"type": "integer", "example": 2},
+        "title": {"type": "string", "example": "Write React integration"},
+        "description": {"type": "string", "example": "Frontend now calls the API"},
+        "status": {"type": "string", "example": "done"},
+        "priority": {"type": "string", "example": "high"},
+        "due_at": {"type": "string", "format": "date-time", "example": "2026-04-16T17:00:00Z"},
+        "completed_at": {"type": "string", "format": "date-time", "example": "2026-04-14T12:30:00Z"},
+        "parent_task_id": {"type": "integer", "example": 1},
+        "created_at": {"type": "string", "format": "date-time", "example": "2026-04-12T10:00:00Z"},
+        "updated_at": {"type": "string", "format": "date-time", "example": "2026-04-14T12:30:00Z"}
       }
     }
   }
