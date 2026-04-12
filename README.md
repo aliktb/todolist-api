@@ -1,8 +1,18 @@
 # todolist-api
 
+> [!INFO]
+> This is a vibe-coded project.
+>
+> That means:
+>
+> - Some parts are genius
+> - Some parts are... mysterious 🌀
+> - Tests may or may not exist
+> - Refactoring is a future concept
+
 Todo list backend in Go with PostgreSQL, REST CRUD endpoints, SQL migrations,
 structured request logging, history tracking, task linking, Swagger docs, and
-container support for a React frontend.
+container support for a React frontend: [todolist-ui](https://github.com/aliktb/todolist-ui)
 
 ## Stack
 
@@ -100,9 +110,14 @@ so you do not need to install a separate migration CLI.
 
 ### Schema Overview
 
-The task schema is created in [`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql),
-extended in [`migrations/000002_extend_tasks.up.sql`](./migrations/000002_extend_tasks.up.sql),
-and the history/link tables are added in [`migrations/000003_add_task_history_and_links.up.sql`](./migrations/000003_add_task_history_and_links.up.sql), with due dates and optional due times introduced in [`migrations/000004_split_due_date_and_time.up.sql`](./migrations/000004_split_due_date_and_time.up.sql).
+The task schema is created in
+[`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql),
+extended in
+[`migrations/000002_extend_tasks.up.sql`](./migrations/000002_extend_tasks.up.sql),
+and the history/link tables are added in
+[`migrations/000003_add_task_history_and_links.up.sql`](./migrations/000003_add_task_history_and_links.up.sql),
+with due dates and optional due times introduced in
+[`migrations/000004_split_due_date_and_time.up.sql`](./migrations/000004_split_due_date_and_time.up.sql).
 
 Key tables after all migrations:
 
