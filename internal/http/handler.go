@@ -148,12 +148,18 @@ func (h *Handler) createTask(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if input.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
+
+	tasks.NormalizeCreateInput(&input)
+	if message := validateCreateInput(input); message != "" {
+		response.Error(w, http.StatusBadRequest, message)
 		return
 	}
 
 	task, err := h.repo.Create(r.Context(), input)
+	if errors.Is(err, tasks.ErrInvalidParent) {
+		response.Error(w, http.StatusBadRequest, "parent task does not exist")
+		return
+	}
 	if err != nil {
 		h.logger.Error("failed to create task", "error", err)
 		response.Error(w, http.StatusInternalServerError, "failed to create task")
@@ -186,12 +192,18 @@ func (h *Handler) updateTask(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if input.Title == "" {
-		response.Error(w, http.StatusBadRequest, "title is required")
+
+	tasks.NormalizeUpdateInput(&input)
+	if message := validateUpdateInput(id, input); message != "" {
+		response.Error(w, http.StatusBadRequest, message)
 		return
 	}
 
 	task, err := h.repo.Update(r.Context(), id, input)
+	if errors.Is(err, tasks.ErrInvalidParent) {
+		response.Error(w, http.StatusBadRequest, "parent task does not exist")
+		return
+	}
 	if errors.Is(err, tasks.ErrNotFound) {
 		response.Error(w, http.StatusNotFound, "task not found")
 		return
@@ -241,4 +253,41 @@ func parseTaskID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+func validateCreateInput(input tasks.CreateTaskInput) string {
+	if input.Title == "" {
+		return "title is required"
+	}
+	if !tasks.ValidStatus(input.Status) {
+		return "status must be one of: todo, in_progress, done, archived"
+	}
+	if !tasks.ValidPriority(input.Priority) {
+		return "priority must be one of: low, medium, high"
+	}
+	if input.ParentTaskID != nil && *input.ParentTaskID < 1 {
+		return "parent_task_id must be a positive integer"
+	}
+	return ""
+}
+
+func validateUpdateInput(taskID int64, input tasks.UpdateTaskInput) string {
+	if input.Title == "" {
+		return "title is required"
+	}
+	if !tasks.ValidStatus(input.Status) {
+		return "status must be one of: todo, in_progress, done, archived"
+	}
+	if !tasks.ValidPriority(input.Priority) {
+		return "priority must be one of: low, medium, high"
+	}
+	if input.ParentTaskID != nil {
+		if *input.ParentTaskID < 1 {
+			return "parent_task_id must be a positive integer"
+		}
+		if *input.ParentTaskID == taskID {
+			return "parent_task_id cannot reference the task itself"
+		}
+	}
+	return ""
 }
