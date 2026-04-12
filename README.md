@@ -72,7 +72,8 @@ Tasks support workflow metadata and optional relationships:
 
 - `status`: `todo`, `in_progress`, `done`, `archived`
 - `priority`: `low`, `medium`, `high`
-- `due_at`: optional due date/time
+- `due_date`: optional due date
+- `due_time`: optional time on the selected due date; cannot be set without `due_date`
 - `completed_at`: automatically set when a task moves to `done`
 - `parent_task_id`: optional parent reference for sub-tasks
 
@@ -101,7 +102,7 @@ so you do not need to install a separate migration CLI.
 
 The task schema is created in [`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql),
 extended in [`migrations/000002_extend_tasks.up.sql`](./migrations/000002_extend_tasks.up.sql),
-and the history/link tables are added in [`migrations/000003_add_task_history_and_links.up.sql`](./migrations/000003_add_task_history_and_links.up.sql).
+and the history/link tables are added in [`migrations/000003_add_task_history_and_links.up.sql`](./migrations/000003_add_task_history_and_links.up.sql), with due dates and optional due times introduced in [`migrations/000004_split_due_date_and_time.up.sql`](./migrations/000004_split_due_date_and_time.up.sql).
 
 Key tables after all migrations:
 
@@ -112,7 +113,9 @@ CREATE TABLE tasks (
     description TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'todo',
     priority TEXT NOT NULL DEFAULT 'medium',
-    due_at TIMESTAMPTZ,
+    due_date DATE,
+    due_time TIME,
+    CHECK (due_date IS NOT NULL OR due_time IS NULL),
     completed_at TIMESTAMPTZ,
     parent_task_id BIGINT REFERENCES tasks(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -169,7 +172,8 @@ curl -X POST http://localhost:8080/api/v1/tasks \
     "description": "Prepare the React app for production",
     "status": "todo",
     "priority": "high",
-    "due_at": "2026-04-20T09:00:00Z"
+    "due_date": "2026-04-20",
+    "due_time": "09:00"
   }'
 ```
 
@@ -203,7 +207,8 @@ curl -X PUT http://localhost:8080/api/v1/tasks/1 \
     "description": "React app is wired to the backend and ready to deploy",
     "status": "done",
     "priority": "high",
-    "due_at": null,
+    "due_date": "2026-04-20",
+    "due_time": null,
     "parent_task_id": null
   }'
 ```
@@ -339,6 +344,7 @@ cleaner.
 ## Notes
 
 - `status=done` automatically sets `completed_at`.
+- `due_time` cannot be provided unless `due_date` is also provided.
 - Moving a task away from `done` clears `completed_at`.
 - `parent_task_id` must reference an existing task and cannot reference the
   task itself.
