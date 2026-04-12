@@ -1,9 +1,6 @@
 package tasks
 
-import (
-	"encoding/json"
-	"time"
-)
+import "encoding/json"
 
 const (
 	StatusTodo       = "todo"
@@ -21,42 +18,46 @@ const (
 )
 
 type Task struct {
-	ID           int64      `json:"id"`
-	Title        string     `json:"title"`
-	Description  string     `json:"description"`
-	Status       string     `json:"status"`
-	Priority     string     `json:"priority"`
-	DueAt        *time.Time `json:"due_at"`
-	CompletedAt  *time.Time `json:"completed_at"`
-	ParentTaskID *int64     `json:"parent_task_id"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID           int64   `json:"id"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	Status       string  `json:"status"`
+	Priority     string  `json:"priority"`
+	DueDate      *string `json:"due_date"`
+	DueTime      *string `json:"due_time"`
+	CompletedAt  *string `json:"completed_at"`
+	ParentTaskID *int64  `json:"parent_task_id"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 }
 
 type TaskSummary struct {
-	ID       int64      `json:"id"`
-	Title    string     `json:"title"`
-	Status   string     `json:"status"`
-	Priority string     `json:"priority"`
-	DueAt    *time.Time `json:"due_at"`
+	ID       int64   `json:"id"`
+	Title    string  `json:"title"`
+	Status   string  `json:"status"`
+	Priority string  `json:"priority"`
+	DueDate  *string `json:"due_date"`
+	DueTime  *string `json:"due_time"`
 }
 
 type CreateTaskInput struct {
-	Title        string     `json:"title"`
-	Description  string     `json:"description"`
-	Status       string     `json:"status"`
-	Priority     string     `json:"priority"`
-	DueAt        *time.Time `json:"due_at"`
-	ParentTaskID *int64     `json:"parent_task_id"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	Status       string  `json:"status"`
+	Priority     string  `json:"priority"`
+	DueDate      *string `json:"due_date"`
+	DueTime      *string `json:"due_time"`
+	ParentTaskID *int64  `json:"parent_task_id"`
 }
 
 type UpdateTaskInput struct {
-	Title        string     `json:"title"`
-	Description  string     `json:"description"`
-	Status       string     `json:"status"`
-	Priority     string     `json:"priority"`
-	DueAt        *time.Time `json:"due_at"`
-	ParentTaskID *int64     `json:"parent_task_id"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	Status       string  `json:"status"`
+	Priority     string  `json:"priority"`
+	DueDate      *string `json:"due_date"`
+	DueTime      *string `json:"due_time"`
+	ParentTaskID *int64  `json:"parent_task_id"`
 }
 
 type TaskEvent struct {
@@ -66,7 +67,7 @@ type TaskEvent struct {
 	FieldName string          `json:"field_name,omitempty"`
 	OldValue  json.RawMessage `json:"old_value,omitempty"`
 	NewValue  json.RawMessage `json:"new_value,omitempty"`
-	CreatedAt time.Time       `json:"created_at"`
+	CreatedAt string          `json:"created_at"`
 }
 
 type CreateTaskLinkInput struct {
@@ -79,7 +80,7 @@ type TaskLink struct {
 	SourceTaskID int64       `json:"source_task_id"`
 	TargetTaskID int64       `json:"target_task_id"`
 	LinkType     string      `json:"link_type"`
-	CreatedAt    time.Time   `json:"created_at"`
+	CreatedAt    string      `json:"created_at"`
 	LinkedTask   TaskSummary `json:"linked_task"`
 }
 

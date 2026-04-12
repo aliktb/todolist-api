@@ -26,11 +26,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) List(ctx context.Context) ([]Task, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, title, description, status, priority, due_at, completed_at, parent_task_id, created_at, updated_at
-		FROM tasks
-		ORDER BY id ASC
-	`)
+	rows, err := r.pool.Query(ctx, taskSelectQuery+` ORDER BY id ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +46,9 @@ func (r *Repository) List(ctx context.Context) ([]Task, error) {
 
 func (r *Repository) Search(ctx context.Context, query string, limit int) ([]TaskSummary, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, title, status, priority, due_at
+		SELECT id, title, status, priority,
+		       TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+		       TO_CHAR(due_time, 'HH24:MI:SS') AS due_time
 		FROM tasks
 		WHERE title ILIKE '%' || $1 || '%'
 		   OR description ILIKE '%' || $1 || '%'
@@ -68,7 +66,7 @@ func (r *Repository) Search(ctx context.Context, query string, limit int) ([]Tas
 	var tasks []TaskSummary
 	for rows.Next() {
 		var task TaskSummary
-		if err := rows.Scan(&task.ID, &task.Title, &task.Status, &task.Priority, &task.DueAt); err != nil {
+		if err := rows.Scan(&task.ID, &task.Title, &task.Status, &task.Priority, &task.DueDate, &task.DueTime); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, task)
@@ -79,17 +77,14 @@ func (r *Repository) Search(ctx context.Context, query string, limit int) ([]Tas
 
 func (r *Repository) Get(ctx context.Context, id int64) (Task, error) {
 	var task Task
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, title, description, status, priority, due_at, completed_at, parent_task_id, created_at, updated_at
-		FROM tasks
-		WHERE id = $1
-	`, id).Scan(
+	err := r.pool.QueryRow(ctx, taskSelectQuery+` WHERE id = $1`, id).Scan(
 		&task.ID,
 		&task.Title,
 		&task.Description,
 		&task.Status,
 		&task.Priority,
-		&task.DueAt,
+		&task.DueDate,
+		&task.DueTime,
 		&task.CompletedAt,
 		&task.ParentTaskID,
 		&task.CreatedAt,
@@ -103,7 +98,8 @@ func (r *Repository) Get(ctx context.Context, id int64) (Task, error) {
 
 func (r *Repository) History(ctx context.Context, taskID int64) ([]TaskEvent, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, task_id, event_type, field_name, old_value, new_value, created_at
+		SELECT id, task_id, event_type, field_name, old_value, new_value,
+		       TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
 		FROM task_events
 		WHERE task_id = $1
 		ORDER BY created_at DESC, id DESC
@@ -138,16 +134,23 @@ func (r *Repository) Create(ctx context.Context, input CreateTaskInput) (Task, e
 
 	var task Task
 	err = tx.QueryRow(ctx, `
-		INSERT INTO tasks (title, description, status, priority, due_at, parent_task_id, completed_at)
-		VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $3 = 'done' THEN NOW() ELSE NULL END)
-		RETURNING id, title, description, status, priority, due_at, completed_at, parent_task_id, created_at, updated_at
-	`, input.Title, input.Description, input.Status, input.Priority, input.DueAt, input.ParentTaskID).Scan(
+		INSERT INTO tasks (title, description, status, priority, due_date, due_time, parent_task_id, completed_at)
+		VALUES ($1, $2, $3, $4, $5::date, $6::time, $7, CASE WHEN $3 = 'done' THEN NOW() ELSE NULL END)
+		RETURNING id, title, description, status, priority,
+		          TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+		          TO_CHAR(due_time, 'HH24:MI:SS') AS due_time,
+		          TO_CHAR(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS completed_at,
+		          parent_task_id,
+		          TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+		          TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS updated_at
+	`, input.Title, input.Description, input.Status, input.Priority, nullableString(input.DueDate), nullableString(input.DueTime), input.ParentTaskID).Scan(
 		&task.ID,
 		&task.Title,
 		&task.Description,
 		&task.Status,
 		&task.Priority,
-		&task.DueAt,
+		&task.DueDate,
+		&task.DueTime,
 		&task.CompletedAt,
 		&task.ParentTaskID,
 		&task.CreatedAt,
@@ -190,22 +193,30 @@ func (r *Repository) Update(ctx context.Context, id int64, input UpdateTaskInput
 		    description = $3,
 		    status = $4,
 		    priority = $5,
-		    due_at = $6,
-		    parent_task_id = $7,
+		    due_date = $6::date,
+		    due_time = $7::time,
+		    parent_task_id = $8,
 		    completed_at = CASE
 		        WHEN $4 = 'done' THEN COALESCE(completed_at, NOW())
 		        ELSE NULL
 		    END,
 		    updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, title, description, status, priority, due_at, completed_at, parent_task_id, created_at, updated_at
-	`, id, input.Title, input.Description, input.Status, input.Priority, input.DueAt, input.ParentTaskID).Scan(
+		RETURNING id, title, description, status, priority,
+		          TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+		          TO_CHAR(due_time, 'HH24:MI:SS') AS due_time,
+		          TO_CHAR(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS completed_at,
+		          parent_task_id,
+		          TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+		          TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS updated_at
+	`, id, input.Title, input.Description, input.Status, input.Priority, nullableString(input.DueDate), nullableString(input.DueTime), input.ParentTaskID).Scan(
 		&task.ID,
 		&task.Title,
 		&task.Description,
 		&task.Status,
 		&task.Priority,
-		&task.DueAt,
+		&task.DueDate,
+		&task.DueTime,
 		&task.CompletedAt,
 		&task.ParentTaskID,
 		&task.CreatedAt,
@@ -243,8 +254,11 @@ func (r *Repository) Delete(ctx context.Context, id int64) error {
 
 func (r *Repository) ListLinks(ctx context.Context, taskID int64) ([]TaskLink, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT l.id, l.source_task_id, l.target_task_id, l.link_type, l.created_at,
-		       t.id, t.title, t.status, t.priority, t.due_at
+		SELECT l.id, l.source_task_id, l.target_task_id, l.link_type,
+		       TO_CHAR(l.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+		       t.id, t.title, t.status, t.priority,
+		       TO_CHAR(t.due_date, 'YYYY-MM-DD') AS due_date,
+		       TO_CHAR(t.due_time, 'HH24:MI:SS') AS due_time
 		FROM task_links l
 		JOIN tasks t ON t.id = CASE WHEN l.source_task_id = $1 THEN l.target_task_id ELSE l.source_task_id END
 		WHERE l.source_task_id = $1 OR l.target_task_id = $1
@@ -268,7 +282,8 @@ func (r *Repository) ListLinks(ctx context.Context, taskID int64) ([]TaskLink, e
 			&link.LinkedTask.Title,
 			&link.LinkedTask.Status,
 			&link.LinkedTask.Priority,
-			&link.LinkedTask.DueAt,
+			&link.LinkedTask.DueDate,
+			&link.LinkedTask.DueTime,
 		); err != nil {
 			return nil, err
 		}
@@ -289,7 +304,8 @@ func (r *Repository) CreateLink(ctx context.Context, sourceTaskID int64, input C
 	err = tx.QueryRow(ctx, `
 		INSERT INTO task_links (source_task_id, target_task_id, link_type)
 		VALUES ($1, $2, $3)
-		RETURNING id, source_task_id, target_task_id, link_type, created_at
+		RETURNING id, source_task_id, target_task_id, link_type,
+		          TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
 	`, sourceTaskID, input.TargetTaskID, input.LinkType).Scan(
 		&link.ID,
 		&link.SourceTaskID,
@@ -378,19 +394,26 @@ func (r *Repository) DeleteLink(ctx context.Context, taskID, linkID int64) error
 	return tx.Commit(ctx)
 }
 
+const taskSelectQuery = `
+	SELECT id, title, description, status, priority,
+	       TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+	       TO_CHAR(due_time, 'HH24:MI:SS') AS due_time,
+	       TO_CHAR(completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS completed_at,
+	       parent_task_id,
+	       TO_CHAR(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+	       TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS updated_at
+	FROM tasks`
+
 func getTaskTx(ctx context.Context, tx pgx.Tx, id int64) (Task, error) {
 	var task Task
-	err := tx.QueryRow(ctx, `
-		SELECT id, title, description, status, priority, due_at, completed_at, parent_task_id, created_at, updated_at
-		FROM tasks
-		WHERE id = $1
-	`, id).Scan(
+	err := tx.QueryRow(ctx, taskSelectQuery+` WHERE id = $1`, id).Scan(
 		&task.ID,
 		&task.Title,
 		&task.Description,
 		&task.Status,
 		&task.Priority,
-		&task.DueAt,
+		&task.DueDate,
+		&task.DueTime,
 		&task.CompletedAt,
 		&task.ParentTaskID,
 		&task.CreatedAt,
@@ -405,10 +428,12 @@ func getTaskTx(ctx context.Context, tx pgx.Tx, id int64) (Task, error) {
 func getTaskSummaryTx(ctx context.Context, tx pgx.Tx, id int64) (TaskSummary, error) {
 	var task TaskSummary
 	err := tx.QueryRow(ctx, `
-		SELECT id, title, status, priority, due_at
+		SELECT id, title, status, priority,
+		       TO_CHAR(due_date, 'YYYY-MM-DD') AS due_date,
+		       TO_CHAR(due_time, 'HH24:MI:SS') AS due_time
 		FROM tasks
 		WHERE id = $1
-	`, id).Scan(&task.ID, &task.Title, &task.Status, &task.Priority, &task.DueAt)
+	`, id).Scan(&task.ID, &task.Title, &task.Status, &task.Priority, &task.DueDate, &task.DueTime)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TaskSummary{}, ErrNotFound
 	}
@@ -429,19 +454,15 @@ func diffTaskEvents(before, after Task) []TaskEvent {
 		if string(oldPayload) == string(newPayload) {
 			return
 		}
-		events = append(events, TaskEvent{
-			EventType: "task_updated",
-			FieldName: field,
-			OldValue:  oldPayload,
-			NewValue:  newPayload,
-		})
+		events = append(events, TaskEvent{EventType: "task_updated", FieldName: field, OldValue: oldPayload, NewValue: newPayload})
 	}
 
 	appendIfChanged("title", before.Title, after.Title)
 	appendIfChanged("description", before.Description, after.Description)
 	appendIfChanged("status", before.Status, after.Status)
 	appendIfChanged("priority", before.Priority, after.Priority)
-	appendIfChanged("due_at", before.DueAt, after.DueAt)
+	appendIfChanged("due_date", before.DueDate, after.DueDate)
+	appendIfChanged("due_time", before.DueTime, after.DueTime)
 	appendIfChanged("completed_at", before.CompletedAt, after.CompletedAt)
 	appendIfChanged("parent_task_id", before.ParentTaskID, after.ParentTaskID)
 	return events
@@ -462,6 +483,13 @@ func nullableJSON(value json.RawMessage) any {
 	return string(value)
 }
 
+func nullableString(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
 func marshalJSON(value any) (json.RawMessage, error) {
 	payload, err := json.Marshal(value)
 	if err != nil {
@@ -477,7 +505,8 @@ func scanTask(rows pgx.Rows, task *Task) error {
 		&task.Description,
 		&task.Status,
 		&task.Priority,
-		&task.DueAt,
+		&task.DueDate,
+		&task.DueTime,
 		&task.CompletedAt,
 		&task.ParentTaskID,
 		&task.CreatedAt,

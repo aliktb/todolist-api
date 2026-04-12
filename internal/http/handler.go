@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -56,21 +57,10 @@ func (h *Handler) Router() http.Handler {
 	return r
 }
 
-// liveness godoc
-// @Summary Liveness probe
-// @Tags health
-// @Success 200 {object} map[string]string
-// @Router /health/live [get]
 func (h *Handler) liveness(w http.ResponseWriter, _ *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// readiness godoc
-// @Summary Readiness probe
-// @Tags health
-// @Success 200 {object} map[string]string
-// @Failure 503 {object} map[string]string
-// @Router /health/ready [get]
 func (h *Handler) readiness(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), h.cfg.ReadinessTimeout)
 	defer cancel()
@@ -83,15 +73,6 @@ func (h *Handler) readiness(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-// searchTasks godoc
-// @Summary Search tasks
-// @Tags tasks
-// @Produce json
-// @Param q query string true "Search text"
-// @Success 200 {array} tasks.TaskSummary
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/search [get]
 func (h *Handler) searchTasks(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
@@ -109,13 +90,6 @@ func (h *Handler) searchTasks(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, results)
 }
 
-// listTasks godoc
-// @Summary List tasks
-// @Tags tasks
-// @Produce json
-// @Success 200 {array} tasks.Task
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks [get]
 func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 	allTasks, err := h.repo.List(r.Context())
 	if err != nil {
@@ -127,16 +101,6 @@ func (h *Handler) listTasks(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, allTasks)
 }
 
-// getTask godoc
-// @Summary Get a task
-// @Tags tasks
-// @Produce json
-// @Param taskID path int true "Task ID"
-// @Success 200 {object} tasks.Task
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID} [get]
 func (h *Handler) getTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseTaskID(w, r)
 	if !ok {
@@ -157,16 +121,6 @@ func (h *Handler) getTask(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, task)
 }
 
-// taskHistory godoc
-// @Summary Get task history
-// @Tags tasks
-// @Produce json
-// @Param taskID path int true "Task ID"
-// @Success 200 {array} tasks.TaskEvent
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID}/history [get]
 func (h *Handler) taskHistory(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseTaskID(w, r)
 	if !ok {
@@ -191,16 +145,6 @@ func (h *Handler) taskHistory(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, history)
 }
 
-// listTaskLinks godoc
-// @Summary List task links
-// @Tags tasks
-// @Produce json
-// @Param taskID path int true "Task ID"
-// @Success 200 {array} tasks.TaskLink
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID}/links [get]
 func (h *Handler) listTaskLinks(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseTaskID(w, r)
 	if !ok {
@@ -225,18 +169,6 @@ func (h *Handler) listTaskLinks(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, links)
 }
 
-// createTaskLink godoc
-// @Summary Create a task link
-// @Tags tasks
-// @Accept json
-// @Produce json
-// @Param taskID path int true "Task ID"
-// @Param payload body tasks.CreateTaskLinkInput true "Task link payload"
-// @Success 201 {object} tasks.TaskLink
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID}/links [post]
 func (h *Handler) createTaskLink(w http.ResponseWriter, r *http.Request) {
 	taskID, ok := parseTaskID(w, r)
 	if !ok {
@@ -273,16 +205,6 @@ func (h *Handler) createTaskLink(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, link)
 }
 
-// deleteTaskLink godoc
-// @Summary Delete a task link
-// @Tags tasks
-// @Param taskID path int true "Task ID"
-// @Param linkID path int true "Link ID"
-// @Success 204
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID}/links/{linkID} [delete]
 func (h *Handler) deleteTaskLink(w http.ResponseWriter, r *http.Request) {
 	taskID, ok := parseTaskID(w, r)
 	if !ok {
@@ -305,16 +227,6 @@ func (h *Handler) deleteTaskLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// createTask godoc
-// @Summary Create a task
-// @Tags tasks
-// @Accept json
-// @Produce json
-// @Param payload body tasks.CreateTaskInput true "Task payload"
-// @Success 201 {object} tasks.Task
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks [post]
 func (h *Handler) createTask(w http.ResponseWriter, r *http.Request) {
 	var input tasks.CreateTaskInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -342,18 +254,6 @@ func (h *Handler) createTask(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, task)
 }
 
-// updateTask godoc
-// @Summary Update a task
-// @Tags tasks
-// @Accept json
-// @Produce json
-// @Param taskID path int true "Task ID"
-// @Param payload body tasks.UpdateTaskInput true "Task payload"
-// @Success 200 {object} tasks.Task
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID} [put]
 func (h *Handler) updateTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseTaskID(w, r)
 	if !ok {
@@ -390,15 +290,6 @@ func (h *Handler) updateTask(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, task)
 }
 
-// deleteTask godoc
-// @Summary Delete a task
-// @Tags tasks
-// @Param taskID path int true "Task ID"
-// @Success 204
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/tasks/{taskID} [delete]
 func (h *Handler) deleteTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseTaskID(w, r)
 	if !ok {
@@ -447,6 +338,9 @@ func validateCreateInput(input tasks.CreateTaskInput) string {
 	if !tasks.ValidPriority(input.Priority) {
 		return "priority must be one of: low, medium, high"
 	}
+	if msg := validateDueFields(input.DueDate, input.DueTime); msg != "" {
+		return msg
+	}
 	if input.ParentTaskID != nil && *input.ParentTaskID < 1 {
 		return "parent_task_id must be a positive integer"
 	}
@@ -462,6 +356,9 @@ func validateUpdateInput(taskID int64, input tasks.UpdateTaskInput) string {
 	}
 	if !tasks.ValidPriority(input.Priority) {
 		return "priority must be one of: low, medium, high"
+	}
+	if msg := validateDueFields(input.DueDate, input.DueTime); msg != "" {
+		return msg
 	}
 	if input.ParentTaskID != nil {
 		if *input.ParentTaskID < 1 {
@@ -483,6 +380,25 @@ func validateTaskLinkInput(sourceTaskID int64, input tasks.CreateTaskLinkInput) 
 	}
 	if !tasks.ValidLinkType(input.LinkType) {
 		return "link_type must be one of: relates_to, blocks, duplicates"
+	}
+	return ""
+}
+
+func validateDueFields(dueDate, dueTime *string) string {
+	if dueDate == nil && dueTime != nil {
+		return "due_time cannot be set without due_date"
+	}
+	if dueDate != nil {
+		if _, err := time.Parse("2006-01-02", *dueDate); err != nil {
+			return "due_date must use YYYY-MM-DD"
+		}
+	}
+	if dueTime != nil {
+		if _, err := time.Parse("15:04", *dueTime); err != nil {
+			if _, err := time.Parse("15:04:05", *dueTime); err != nil {
+				return "due_time must use HH:MM or HH:MM:SS"
+			}
+		}
 	}
 	return ""
 }
