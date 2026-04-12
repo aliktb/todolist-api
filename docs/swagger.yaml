@@ -194,7 +194,8 @@ definitions:
       description: {type: string}
       status: {type: string}
       priority: {type: string}
-      due_at: {type: string, format: date-time}
+      due_date: {type: string, format: date}
+      due_time: {type: string}
       parent_task_id: {type: integer}
   tasks.UpdateTaskInput:
     type: object
@@ -204,7 +205,8 @@ definitions:
       description: {type: string}
       status: {type: string}
       priority: {type: string}
-      due_at: {type: string, format: date-time}
+      due_date: {type: string, format: date}
+      due_time: {type: string}
       parent_task_id: {type: integer}
   tasks.Task:
     type: object
@@ -214,7 +216,8 @@ definitions:
       description: {type: string}
       status: {type: string}
       priority: {type: string}
-      due_at: {type: string, format: date-time}
+      due_date: {type: string, format: date}
+      due_time: {type: string}
       completed_at: {type: string, format: date-time}
       parent_task_id: {type: integer}
       created_at: {type: string, format: date-time}
@@ -226,7 +229,8 @@ definitions:
       title: {type: string}
       status: {type: string}
       priority: {type: string}
-      due_at: {type: string, format: date-time}
+      due_date: {type: string, format: date}
+      due_time: {type: string}
   tasks.TaskEvent:
     type: object
     properties:
