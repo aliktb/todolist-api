@@ -66,6 +66,18 @@ make run
 
 The API will be available on `http://localhost:8080`.
 
+## Data Model
+
+Tasks now support richer workflow metadata:
+
+- `status`: `todo`, `in_progress`, `done`, `archived`
+- `priority`: `low`, `medium`, `high`
+- `due_at`: optional due date/time
+- `completed_at`: automatically set when a task moves to `done`
+- `parent_task_id`: optional parent reference for sub-tasks
+
+The longer task details remain in `description`.
+
 ## Database Migrations
 
 Migrations live in [`migrations`](./migrations).
@@ -82,21 +94,25 @@ make migrate-version
 These commands run the Go migration utility in [`cmd/migrate`](./cmd/migrate),
 so you do not need to install a separate migration CLI.
 
-### Schema SQL
+### Current Schema
 
-The initial schema is in [`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql):
+The task table starts in [`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql)
+and is extended in [`migrations/000002_extend_tasks.up.sql`](./migrations/000002_extend_tasks.up.sql).
+After all migrations, the table shape is effectively:
 
 ```sql
-CREATE TABLE IF NOT EXISTS tasks (
+CREATE TABLE tasks (
     id BIGSERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done', 'archived')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+    due_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    parent_task_id BIGINT REFERENCES tasks(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks (completed);
 ```
 
 ## API Endpoints
@@ -115,14 +131,31 @@ Base path: `/api/v1`
 
 ### Example Requests
 
-Create a task:
+Create a parent task:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Write React integration",
-    "description": "Hook the frontend up to the API"
+    "title": "Launch the frontend",
+    "description": "Prepare the React app for production",
+    "status": "todo",
+    "priority": "high",
+    "due_at": "2026-04-20T09:00:00Z"
+  }'
+```
+
+Create a sub-task:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Hook React to the API",
+    "description": "Wire the task screens to the backend endpoints",
+    "status": "in_progress",
+    "priority": "medium",
+    "parent_task_id": 1
   }'
 ```
 
@@ -144,9 +177,12 @@ Update a task:
 curl -X PUT http://localhost:8080/api/v1/tasks/1 \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Write React integration",
-    "description": "Frontend now calls the API",
-    "completed": true
+    "title": "Launch the frontend",
+    "description": "React app is wired to the backend and ready to deploy",
+    "status": "done",
+    "priority": "high",
+    "due_at": "2026-04-20T09:00:00Z",
+    "parent_task_id": null
   }'
 ```
 
@@ -164,13 +200,19 @@ logs to a collector in Docker, Kubernetes, or a cloud runtime.
 
 ## Swagger Documentation
 
-Swagger annotations are in the Go handlers and the repo includes a generated
-docs package in [`docs`](./docs) so the Swagger UI can be served immediately.
+Swagger annotations are in the Go handlers and the repo includes a checked-in
+`docs` package so the Swagger UI can be served immediately.
 
 Swagger UI endpoint:
 
 ```text
 http://localhost:8080/swagger/index.html
+```
+
+The raw spec is available at:
+
+```text
+http://localhost:8080/swagger/doc.json
 ```
 
 To regenerate the Swagger files after editing handlers or annotations:
@@ -186,8 +228,6 @@ go install github.com/swaggo/swag/cmd/swag@latest
 ```bash
 make swagger
 ```
-
-The checked-in files under `docs/` can then be refreshed and committed.
 
 ## Docker
 
@@ -216,7 +256,7 @@ To skip startup migrations for a container instance:
 ```bash
 docker run --rm -p 8080:8080 \
   -e RUN_MIGRATIONS=false \
-  -e DATABASE_URL="postgres://postgres:host.docker.internal:5432/todolist?sslmode=disable" \
+  -e DATABASE_URL="postgres://postgres:postgres@host.docker.internal:5432/todolist?sslmode=disable" \
   todolist-api
 ```
 
@@ -233,7 +273,10 @@ cleaner.
 
 ## Notes
 
-- `PUT /api/v1/tasks/{taskID}` expects the full task payload.
+- `status=done` automatically sets `completed_at`.
+- Moving a task away from `done` clears `completed_at`.
+- `parent_task_id` must reference an existing task and cannot reference the
+  task itself.
 - Readiness returns `503` if PostgreSQL is unavailable.
 - `ALLOWED_ORIGIN` should be tightened to your real frontend origin outside
-local development.
+  local development.
