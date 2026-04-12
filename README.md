@@ -1,8 +1,8 @@
 # todolist-api
 
 Todo list backend in Go with PostgreSQL, REST CRUD endpoints, SQL migrations,
-structured request logging, health probes, Swagger docs, and container support
-for a React frontend.
+structured request logging, history tracking, task linking, Swagger docs, and
+container support for a React frontend.
 
 ## Stack
 
@@ -68,7 +68,7 @@ The API will be available on `http://localhost:8080`.
 
 ## Data Model
 
-Tasks now support richer workflow metadata:
+Tasks support workflow metadata and optional relationships:
 
 - `status`: `todo`, `in_progress`, `done`, `archived`
 - `priority`: `low`, `medium`, `high`
@@ -76,7 +76,10 @@ Tasks now support richer workflow metadata:
 - `completed_at`: automatically set when a task moves to `done`
 - `parent_task_id`: optional parent reference for sub-tasks
 
-The longer task details remain in `description`.
+There are also two supporting tables:
+
+- `task_events`: append-only history for task changes and link activity
+- `task_links`: explicit links between related tasks
 
 ## Database Migrations
 
@@ -94,24 +97,44 @@ make migrate-version
 These commands run the Go migration utility in [`cmd/migrate`](./cmd/migrate),
 so you do not need to install a separate migration CLI.
 
-### Current Schema
+### Schema Overview
 
-The task table starts in [`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql)
-and is extended in [`migrations/000002_extend_tasks.up.sql`](./migrations/000002_extend_tasks.up.sql).
-After all migrations, the table shape is effectively:
+The task schema is created in [`migrations/000001_create_tasks.up.sql`](./migrations/000001_create_tasks.up.sql),
+extended in [`migrations/000002_extend_tasks.up.sql`](./migrations/000002_extend_tasks.up.sql),
+and the history/link tables are added in [`migrations/000003_add_task_history_and_links.up.sql`](./migrations/000003_add_task_history_and_links.up.sql).
+
+Key tables after all migrations:
 
 ```sql
 CREATE TABLE tasks (
     id BIGSERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done', 'archived')),
-    priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+    status TEXT NOT NULL DEFAULT 'todo',
+    priority TEXT NOT NULL DEFAULT 'medium',
     due_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     parent_task_id BIGINT REFERENCES tasks(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE task_events (
+    id BIGSERIAL PRIMARY KEY,
+    task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    field_name TEXT NOT NULL DEFAULT '',
+    old_value JSONB,
+    new_value JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE task_links (
+    id BIGSERIAL PRIMARY KEY,
+    source_task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    target_task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    link_type TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
@@ -122,10 +145,15 @@ Base path: `/api/v1`
 | Method | Path | Description |
 | --- | --- | --- |
 | `GET` | `/api/v1/tasks` | List all tasks |
+| `GET` | `/api/v1/tasks/search?q=...` | Fuzzy-find tasks for linking |
 | `GET` | `/api/v1/tasks/{taskID}` | Fetch one task |
 | `POST` | `/api/v1/tasks` | Create a task |
 | `PUT` | `/api/v1/tasks/{taskID}` | Update a task |
 | `DELETE` | `/api/v1/tasks/{taskID}` | Delete a task |
+| `GET` | `/api/v1/tasks/{taskID}/history` | Fetch task change history |
+| `GET` | `/api/v1/tasks/{taskID}/links` | List links for a task |
+| `POST` | `/api/v1/tasks/{taskID}/links` | Create a task link |
+| `DELETE` | `/api/v1/tasks/{taskID}/links/{linkID}` | Delete a task link |
 | `GET` | `/health/live` | Liveness probe |
 | `GET` | `/health/ready` | Readiness probe backed by DB ping |
 
@@ -159,19 +187,13 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-List tasks:
+Search tasks for linking:
 
 ```bash
-curl http://localhost:8080/api/v1/tasks
+curl "http://localhost:8080/api/v1/tasks/search?q=frontend"
 ```
 
-Get a task by ID:
-
-```bash
-curl http://localhost:8080/api/v1/tasks/1
-```
-
-Update a task:
+Update a task and trigger history entries:
 
 ```bash
 curl -X PUT http://localhost:8080/api/v1/tasks/1 \
@@ -181,16 +203,66 @@ curl -X PUT http://localhost:8080/api/v1/tasks/1 \
     "description": "React app is wired to the backend and ready to deploy",
     "status": "done",
     "priority": "high",
-    "due_at": "2026-04-20T09:00:00Z",
+    "due_at": null,
     "parent_task_id": null
   }'
 ```
 
-Delete a task:
+View task history:
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/tasks/1
+curl http://localhost:8080/api/v1/tasks/1/history
 ```
+
+Create a task link:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks/1/links \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_task_id": 2,
+    "link_type": "blocks"
+  }'
+```
+
+List links for a task:
+
+```bash
+curl http://localhost:8080/api/v1/tasks/1/links
+```
+
+Delete a task link:
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/tasks/1/links/1
+```
+
+## History Model
+
+Task history is exposed via `GET /api/v1/tasks/{taskID}/history` and is backed by
+an append-only `task_events` table. The API records:
+
+- task creation via `task_created`
+- field changes via `task_updated`
+- task link creation via `task_linked`
+- task link deletion via `task_unlinked`
+
+Each history row includes `old_value` and `new_value` as JSON so your frontend
+can render a timeline or diff view.
+
+## Linking Model
+
+Task links are separate from `parent_task_id` so you can support both sub-tasks
+and peer-to-peer relationships.
+
+Supported `link_type` values:
+
+- `relates_to`
+- `blocks`
+- `duplicates`
+
+The frontend can use `/api/v1/tasks/search?q=...` to find candidate tasks and
+then call `POST /api/v1/tasks/{taskID}/links` to create the actual link.
 
 ## Logging
 
@@ -217,15 +289,8 @@ http://localhost:8080/swagger/doc.json
 
 To regenerate the Swagger files after editing handlers or annotations:
 
-1. Install the generator:
-
 ```bash
 go install github.com/swaggo/swag/cmd/swag@latest
-```
-
-2. Regenerate:
-
-```bash
 make swagger
 ```
 
@@ -277,6 +342,7 @@ cleaner.
 - Moving a task away from `done` clears `completed_at`.
 - `parent_task_id` must reference an existing task and cannot reference the
   task itself.
+- Task links require a valid target task and cannot self-reference.
 - Readiness returns `503` if PostgreSQL is unavailable.
 - `ALLOWED_ORIGIN` should be tightened to your real frontend origin outside
   local development.
